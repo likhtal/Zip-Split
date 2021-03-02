@@ -1,0 +1,323 @@
+<!doctype html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta itemprop="name" content="Zip Analysis/Modification">
+    <meta itemprop="description" content="Zip Analysis/Modification">
+    <meta name="description" content="Zip Analysis/Modification">
+    <meta name="keywords" content="">
+    <title>Zip Analysis/Modification</title>
+
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="shortcut icon" href="/static/img/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="/static/img/favicon.ico" type="image/x-icon">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+    <link href="/static/css/zip_split.css" rel="stylesheet" id="zip-split-css">
+    <link href='https://fonts.googleapis.com/css?family=Lobster+Two' rel='stylesheet' type='text/css'>
+
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+
+    <script type="text/javascript" src="/static/js/js.utils.js"></script>
+    <script type="text/javascript" src="/static/js/FileSaver/FileSaver.min.js"></script>
+<style>
+.get-tys {
+  margin: 0 4px 0px 4px;
+  cursor: pointer;   
+  -moz-box-sizing: border-box;
+  box-sizing: border-box;
+  background: url(/static/img/1x1.png) no-repeat;
+  width: 32px; 
+  height: 32px; 
+  padding-left: 32px; 
+}
+.get-tys {
+  background: url(/static/img/download-32.png) no-repeat;
+}
+
+ul.list-of-files {
+  max-height: none;
+}
+</style>
+  </head>
+  <body>
+
+    <div class="container">
+      <div id="loginbox" style="margin-top:50px;" class="mainbox col-lg-8 col-lg-offset-2"> 
+        <div class="logo">
+          <div class="panel-title">
+             <span class="lobster-sm">Extract Sources (Google Takeout, Uber data, FitBit data) from a Zip, and Leave just Eligible Files (.json, .csv, .xls, .xslx)</span>
+             <span id="settings" style="display:none;">
+                <button id="btnAdd">
+                  <img src="/static/img/settings-32.png" title="Add to Home Page">
+                </button>
+             </span> 
+          </div>
+        </div>
+        <div class="panel panel-info" >
+          <div class="panel-heading" style="text-align: center;margin: 0 auto;">
+          </div>
+          <div style="padding-top:30px;padding-bottom:0;" class="panel-body" id="form-panel">
+            <div style="display:none" id="login-alert" class="alert alert-danger col-sm-12"></div>
+            <div style="display:none" id="login-success" class="alert alert-success col-sm-12"></div>
+            <form id="contents" class="form-horizontal" role="form" style="">
+              <div class="contents-page contents-uploads" style="">
+                <div style="margin-top:10px" class="form-group">
+                  <div id="uploading-controls" style="">
+                    <div class="col-sm-12 controls" style="text-align:center;">
+                      <label id="for-f" for="f" class="btn btn-primary">
+                      <input type="file" name="f" id="f" class="btn input" accept="application/x-zip-compressed" 
+                        style="display:none;" /> 
+                      Select Zip File(s)
+                      </label> 
+                    </div>
+                    <ul id="uploaded-file-list" class="list-group list-of-files"></ul>
+                  </div>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+<script type="module">
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('service-worker.js').catch(function(e) {
+      eulog.log("Error:", e);
+      // handleFailure("", e.?);
+    });
+  } else {
+      eulog.log("No service worker");
+  }
+
+  import { analyseZip, modifyZip } from "./za.js";
+
+  const ALLOWED_EXTENSIONS = [".zip"];
+
+  function allowed(s) {
+    return ALLOWED_EXTENSIONS.map(q => s.toLowerCase().endsWith(q))
+                             .some(q => q);
+  }
+
+  function path2tyS(path) {
+    let q = path.split('/');
+    if (q.length > 0) q = q.slice(0, q.length-1);
+    if (q.length <= 1 || !q[1]) {
+        return "";
+    }
+    
+    // Google Takeout, Uber
+    if (["Takeout", "Uber Data"].includes(q[0]))  {
+       return q[0] + '|' + q[1];
+    }
+    
+    // FitBit
+    if (q[1] == 'user-profile' || q[1] == 'user-site-export')  {
+       return 'user|' + q[0];
+    }
+    
+    return "";
+  }
+
+  function paths2tySes(paths) {
+    let tySes = paths.map(path2tyS).filter(q => !!q);
+    tySes = [... new Set(tySes)];
+    tySes.sort();
+    return tySes;
+  }
+
+  function clearMsgs() {
+    $("#login-alert").hide();
+    $("#login-alert").text('');
+    $("#login-success").hide();
+    $("#login-success").text('');
+  }
+
+  function clearTransfer() {
+    const $ul = $("#uploaded-file-list");
+    $ul.empty();
+  }
+
+  function clearAll() {
+    clearMsgs();
+    clearTransfer();
+  }
+
+  function humanFileSize(bytes, si) {
+    const thresh = si ? 1000 : 1024;
+    if (Math.abs(bytes) < thresh) {
+          return bytes + ' B';
+    }
+    const units = si ? ['kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'] : ['KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB'];
+    let u = -1;
+    do {
+        bytes /= thresh;
+        ++u;
+    } while (Math.abs(bytes) >= thresh && u < units.length - 1);
+    
+    return bytes.toFixed(1) + ' ' + units[u];
+  }
+
+  function genLi(tx, imgClassName, imgTitle) {
+    const $i = $("<li tabindex='0' />").addClass("list-group-item");
+    const $r = $("<img />").addClass(imgClassName).prop("src", "/static/img/1x1.png")
+                           .prop("title", imgTitle);
+    const $s = $("<span />").addClass("item-text").text(tx);  
+    $i.append($r).append($s)
+    
+    return {"$li": $i} ;
+  }
+
+  function handleFailure(errorThrown, msg) {
+    clearMsgs();
+    if (errorThrown == "Forbidden") {
+      $("#login-alert").html("Sorry - you don't have proper permissions. Contact the administrator.");
+    } else if (errorThrown == "Unauthorized") {
+      logout();
+    } else if (!!msg) {
+      $("#login-alert").html(msg);
+    } else {
+      $("#login-alert").html("The processing has failed. Try again.");
+    }
+    $("#login-alert").show().get(0).scrollIntoView();
+  }
+
+  async function peekInZip(ff) {
+    const data = await file2Ui8(ff);
+    const zipInfo = await analyseZip(data);
+
+    if ("error" in zipInfo) {
+       handleFailure("", zipInfo.error);
+       return [];
+    }
+
+    const {entries} = zipInfo;
+    return entries;
+  }
+
+  async function handleFiles(ffs) {
+    const $ul = $("#uploaded-file-list");
+
+    const f = ffs[0];
+    eulog.log("f:", f);
+    if(!f || (!!f.exists && !f.exists()) || !f.name || !f.size || f.size <= 0) return;
+
+    const fn = f.webkitRelativePath || f.name;
+    eulog.log(fn);
+    if(!fn || !allowed(fn)) return;
+
+    const {$li, $p} = genLi(fn + ' [' + humanFileSize(f.size, true) + ']', "item-none", "&nbsp;");
+
+    $li.addClass("uploaded-list-group-item");
+    $ul.append($li);  
+
+    const $ulTs = $("<ul >").addClass("list-group").addClass("tys-list");
+    $li.append($ulTs)
+
+    let tySes = [];
+    if (f.name.endsWith(".zip")) {
+       const filesA = await peekInZip(f);
+       tySes = paths2tySes(filesA.filter(q => !q.directory).map(q => q.filename));
+    }
+
+    for (const tyS of tySes) {
+       const {$li: $liTs} = genLi(tyS, "get-tys", "Get this sourceType as zip");
+
+       $liTs.addClass("tys-list-group-item").attr("data-tys", tyS);
+       $ulTs.append($liTs);  
+    }
+  }
+
+  async function getTyS() {
+    const $i = $(this).closest("li");
+    const $pi = $(this).closest("li.uploaded-list-group-item");
+    const $pu = $pi.closest("ul");
+    const i = $pu.children("li").index($pi);
+    
+    const tyS = $i.attr("data-tys");
+    
+    if ($("#f").length <= 0 || $("#f").get(0).files.length <= 0) {
+       handleFailure("", "No file selected ..."); 
+       return;
+    }
+
+    const f = $("#f").get(0).files[0];
+
+    const data = await file2Ui8(f);
+    const zipInfo = await analyseZip(data);
+  
+    if ("error" in zipInfo) {
+       handleFailure("", zipInfo.error); 
+       return;
+    }
+    /*
+    Useful entry info:
+    ------------------
+    directory: false
+    filename: "Takeout/Location History/Location History.json"
+    compressedSize: 56869573
+    uncompressedSize: 908230232
+    ...
+    */
+    const options = { 
+       // examples of filters: by file name pattern, by extension.
+      "filters": [ 
+         // Get just Google Takeout or Uber or FitBit data:
+         entry => path2tyS(entry.filename) == tyS,  
+         // and leave only .json, .csv, .xls and .xslx files.
+         entry => entry.filename.toLowerCase().endsWith(".json") || entry.filename.toLowerCase().endsWith(".csv") || 
+                  entry.filename.toLowerCase().endsWith(".xls") || entry.filename.toLowerCase().endsWith(".xlsx"),  
+         ], 
+    };
+
+    let tmp = await modifyZip(data, zipInfo, options);
+    saveAs(new Blob([tmp]), f.name + tyS.replace('|', '-') + ".zip");
+  }
+
+  window.onload = async function() {
+    $(".contents-uploads").on("click", ".get-tys", getTyS);
+
+    let fileInput = document.querySelector('#f');
+  
+    fileInput.addEventListener('change', async function(e) {
+        clearAll();
+        await handleFiles(this.files);
+    });  
+  };
+
+  let deferredPrompt;
+  let btnAdd = document.getElementById("btnAdd");
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    // Stash the event so it can be triggered later.
+    deferredPrompt = e;
+    // Update UI notify the user they can add to home screen
+    console.log(deferredPrompt);
+    $("#settings").show();
+  });
+
+  btnAdd.addEventListener('click', (e) => {
+    // hide our user interface that shows our A2HS button
+    btnAdd.style.display = 'none';
+    // Show the prompt
+    deferredPrompt.prompt();
+    // Wait for the user to respond to the prompt
+    deferredPrompt.userChoice
+      .then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') {
+          console.log('User accepted the A2HS prompt');
+        } else {
+          console.log('User dismissed the A2HS prompt');
+        }
+        deferredPrompt = null;
+      });
+  });
+
+</script>
+
+  </body>
+</html>
