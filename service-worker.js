@@ -7,11 +7,10 @@ const FONT_ORIGINS = ['https://fonts.gstatic.com', 'https://fonts.googleapis.com
 
 const PRE_CACHED_ASSETS = [
   '/index.html',
-   "/static/css/msa_typed.css",
+   "/static/css/zip_split.css",
    "/static/img/favicon.ico",
    "/static/img/download-32.png", 
    "/static/img/1x1.png", 
-   "/static/img/logos/logo-allstate-innovate2.png", 
    "/static/js/js.utils.js", 
    "/static/js/FileSaver/FileSaver.min.js",
    "/static/js/FileSaver/FileSaver.min.js.map",
